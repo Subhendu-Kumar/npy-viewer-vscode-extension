@@ -1,0 +1,8 @@
+out
+dist
+node_modules
+.vscode-test/
+*.vsix
+
+# Generated on demand by sample-npy-files/generate.py --large
+sample-npy-files/*.npy

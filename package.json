@@ -1,0 +1,177 @@
+{
+  "name": "npy-viewer",
+  "displayName": "npy viewer",
+  "description": "NPY Viewer is a fast and lightweight Visual Studio Code extension for viewing NumPy (`.npy`) files directly within the editor. It allows you to inspect array contents, shape, dimensions, data type, and other metadata through an intuitive interface, making it easy to explore machine learning datasets, scientific data, and numerical arrays without writing Python scripts or leaving VS Code.",
+  "version": "0.0.1",
+  "publisher": "subh-tools",
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "categories": [
+    "Visualization",
+    "Data Science",
+    "Machine Learning",
+    "Other"
+  ],
+  "keywords": [
+    "numpy",
+    "npy",
+    "array",
+    "tensor",
+    "data science",
+    "eda",
+    "visualization"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "npyViewer.arrayEditor",
+        "displayName": "NPY Viewer",
+        "selector": [
+          {
+            "filenamePattern": "*.npy"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "npy-viewer.openWith",
+        "title": "Open with NPY Viewer",
+        "category": "NPY"
+      },
+      {
+        "command": "npy-viewer.reload",
+        "title": "Reload Array",
+        "category": "NPY"
+      },
+      {
+        "command": "npy-viewer.selectPython",
+        "title": "Select Python Interpreter for Parsing",
+        "category": "NPY"
+      },
+      {
+        "command": "npy-viewer.showBackendInfo",
+        "title": "Show Parsing Backend Info",
+        "category": "NPY"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "npy-viewer.openWith",
+          "when": "resourceExtname == .npy",
+          "group": "navigation@10"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "npy-viewer.reload",
+          "when": "activeCustomEditorId == npyViewer.arrayEditor"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "NPY Viewer",
+      "properties": {
+        "npyViewer.python.enabled": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Analyse arrays with a Python + NumPy subprocess when an interpreter is available. NumPy reads every dtype, including pickled object arrays, and computes exact quantiles on arrays too large for the built-in parser to hold in memory. When disabled — or when no interpreter is found — the built-in TypeScript parser is used instead; it needs no Python and is comparably fast on ordinary numeric arrays."
+        },
+        "npyViewer.python.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Absolute path to the Python interpreter used for parsing. Leave empty to auto-detect (the Python extension's selected interpreter is preferred, then `python3` / `python` / `py` on `PATH`)."
+        },
+        "npyViewer.python.showInstallHint": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a dismissible hint recommending Python + NumPy when the extension falls back to the built-in parser."
+        },
+        "npyViewer.preview.maxElements": {
+          "type": "number",
+          "default": 2000000,
+          "minimum": 10000,
+          "description": "Maximum number of array elements sent to the view. Larger arrays are decimated for display; statistics are still computed over every element."
+        },
+        "npyViewer.preview.imageMaxSide": {
+          "type": "number",
+          "default": 1600,
+          "minimum": 64,
+          "description": "Longest edge, in pixels, of a rendered image preview. Larger images are downscaled."
+        },
+        "npyViewer.stats.exactPercentileLimit": {
+          "type": "number",
+          "default": 20000000,
+          "minimum": 100000,
+          "markdownDescription": "Element count up to which percentiles and the median are computed exactly. Above this, they are estimated from a uniform reservoir sample and labelled *approximate*."
+        },
+        "npyViewer.stats.histogramBins": {
+          "type": "number",
+          "default": 64,
+          "minimum": 8,
+          "maximum": 256,
+          "description": "Number of bins in the distribution histogram."
+        },
+        "npyViewer.view.colormap": {
+          "type": "string",
+          "default": "viridis",
+          "enum": [
+            "viridis",
+            "magma",
+            "inferno",
+            "plasma",
+            "cividis",
+            "turbo",
+            "gray",
+            "coolwarm"
+          ],
+          "description": "Default colormap used for heatmaps and single-channel image previews."
+        },
+        "npyViewer.view.autoNormalize": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Stretch float image data to the full display range using the array's own min/max. Disable to clamp to the dtype's natural range (`0..1` for floats, `0..255` for `uint8`)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.125.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "24.x",
+    "typescript-eslint": "^8.61.1",
+    "eslint": "^10.5.0",
+    "esbuild": "^0.28.1",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^6.0.3",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.0.0"
+  },
+  "overrides": {
+    "diff": "^8.0.4",
+    "serialize-javascript": "^7.0.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Subhendu-Kumar/npy-viewer-vscode-extension"
+  }
+}
