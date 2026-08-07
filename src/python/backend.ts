@@ -82,6 +82,17 @@ export class PythonBackend {
   }
 
   private async runProbe(): Promise<PythonProbe | null> {
+    // Launching an interpreter is the one thing this extension does that runs
+    // code, so it stays off until the user has vouched for the folder. The
+    // built-in parser handles every standard dtype without it.
+    if (!vscode.workspace.isTrusted) {
+      this.lastFailure =
+        "This workspace is not trusted, so the Python backend was not started. " +
+        "The built-in parser is being used instead.";
+      this.cached = null;
+      return null;
+    }
+
     const config = vscode.workspace.getConfiguration("npyViewer");
     if (!config.get<boolean>("python.enabled", true)) {
       this.lastFailure = "Python parsing is turned off in settings.";

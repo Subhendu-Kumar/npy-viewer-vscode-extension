@@ -41,6 +41,43 @@ suite("Extension activation", () => {
     assert.deepStrictEqual(editor?.selector, [{ filenamePattern: "*.npy" }]);
   });
 
+  // A workspace that can point `python.path` at any executable turns opening a
+  // .npy file into arbitrary code execution. Machine scope is what forbids it,
+  // so it is asserted rather than trusted to stay put.
+  test("settings that launch a process are machine-scoped", () => {
+    const extension = vscode.extensions.getExtension(EXTENSION_ID);
+    const properties =
+      extension?.packageJSON?.contributes?.configuration?.properties ?? {};
+
+    for (const key of ["npyViewer.python.path", "npyViewer.python.enabled"]) {
+      assert.ok(properties[key], `${key} is missing`);
+      assert.strictEqual(
+        properties[key].scope,
+        "machine",
+        `${key} must be machine-scoped so a workspace cannot set it`,
+      );
+    }
+  });
+
+  test("declares what it does in an untrusted workspace", () => {
+    const extension = vscode.extensions.getExtension(EXTENSION_ID);
+    const capabilities = extension?.packageJSON?.capabilities;
+
+    assert.ok(capabilities, "no capabilities block declared");
+    assert.strictEqual(capabilities.untrustedWorkspaces?.supported, "limited");
+    assert.ok(
+      capabilities.untrustedWorkspaces?.description,
+      "untrusted-workspace support needs a description users can read",
+    );
+    assert.deepStrictEqual(
+      [
+        ...(capabilities.untrustedWorkspaces?.restrictedConfigurations ?? []),
+      ].sort(),
+      ["npyViewer.python.enabled", "npyViewer.python.path"],
+    );
+    assert.strictEqual(capabilities.virtualWorkspaces?.supported, false);
+  });
+
   test("exposes its settings under a single namespace", () => {
     const extension = vscode.extensions.getExtension(EXTENSION_ID);
     const properties =

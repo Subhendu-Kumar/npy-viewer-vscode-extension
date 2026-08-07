@@ -82,19 +82,26 @@ Interpreters are looked for in this order: the `npyViewer.python.path` setting,
 the interpreter selected in the Python extension, then `python3` / `python` /
 `py` on `PATH`.
 
+Because launching an interpreter is the only thing this extension does that runs
+code, it is fenced off in two ways. `npyViewer.python.path` and
+`npyViewer.python.enabled` are **machine-scoped**, so they can only be set in
+your own user or remote settings — a folder you open can never choose which
+executable gets launched. And in a workspace you have not trusted, the backend
+is not started at all; the built-in parser handles the file instead.
+
 ## Settings
 
-| Setting                                | Default   | Effect                                        |
-| -------------------------------------- | --------- | --------------------------------------------- |
-| `npyViewer.python.enabled`             | `true`    | Use NumPy for analysis when available         |
-| `npyViewer.python.path`                | `""`      | Explicit interpreter path; empty auto-detects |
-| `npyViewer.python.showInstallHint`     | `true`    | Show the hint when falling back               |
-| `npyViewer.preview.maxElements`        | `2000000` | Cap on elements sent to the view              |
-| `npyViewer.preview.imageMaxSide`       | `1600`    | Longest edge of an image preview              |
-| `npyViewer.stats.exactPercentileLimit` | `5000000` | Above this, quantiles are sampled             |
-| `npyViewer.stats.histogramBins`        | `64`      | Histogram bin count                           |
-| `npyViewer.view.colormap`              | `viridis` | Default colormap                              |
-| `npyViewer.view.autoNormalize`         | `true`    | Stretch float imagery to its own range        |
+| Setting                                | Default   | Effect                                                           |
+| -------------------------------------- | --------- | ---------------------------------------------------------------- |
+| `npyViewer.python.enabled`             | `true`    | Use NumPy for analysis when available _(machine-scoped)_         |
+| `npyViewer.python.path`                | `""`      | Explicit interpreter path; empty auto-detects _(machine-scoped)_ |
+| `npyViewer.python.showInstallHint`     | `true`    | Show the hint when falling back                                  |
+| `npyViewer.preview.maxElements`        | `2000000` | Cap on elements sent to the view                                 |
+| `npyViewer.preview.imageMaxSide`       | `1600`    | Longest edge of an image preview                                 |
+| `npyViewer.stats.exactPercentileLimit` | `5000000` | Above this, quantiles are sampled                                |
+| `npyViewer.stats.histogramBins`        | `64`      | Histogram bin count                                              |
+| `npyViewer.view.colormap`              | `viridis` | Default colormap                                                 |
+| `npyViewer.view.autoNormalize`         | `true`    | Stretch float imagery to its own range                           |
 
 ## Commands
 

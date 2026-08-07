@@ -4,6 +4,31 @@ All notable changes to NPY Viewer are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] — 2026-08-07
+
+A security release. Upgrading is recommended for anyone who opens `.npy` files
+from repositories they did not write.
+
+### Security
+
+- `npyViewer.python.path` and `npyViewer.python.enabled` are now
+  **machine-scoped**. They were window-scoped, which let a workspace's
+  `.vscode/settings.json` point the interpreter path at any executable — opening
+  a `.npy` file from an untrusted repository would then launch it. Machine scope
+  restricts both to user and remote settings, where a workspace cannot reach
+  them.
+- The Python backend is no longer started in an **untrusted workspace**.
+  Arrays still parse and render with the built-in parser, which executes nothing
+  from the workspace. Granting trust mid-session re-detects the interpreter.
+- Declared `capabilities.untrustedWorkspaces` (`limited`) and
+  `capabilities.virtualWorkspaces` (`false`) so VS Code and users can see what
+  the extension does in a restricted workspace.
+
+### Fixed
+
+- Opening a `.npy` file from a virtual or remote filesystem now explains that
+  direct filesystem access is required, instead of surfacing a raw `ENOENT`.
+
 ## [1.0.0] — 2026-08-07
 
 First public release.
@@ -50,3 +75,8 @@ First public release.
   from a uniform random sample and are labelled _approximate_.
 - `int64`/`uint64` values beyond 2⁵³ carry a small relative error in statistics,
   as they would in any float64 computation. The data table shows them exactly.
+
+## [0.0.1] — 2026-08-07
+
+Initial release, superseded within the day by 1.0.0. The feature set was the
+same; 1.0.0 added the extension icon and the CI and release workflows.

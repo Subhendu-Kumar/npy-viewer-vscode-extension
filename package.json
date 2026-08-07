@@ -2,7 +2,7 @@
   "name": "npy-viewer",
   "displayName": "NPY Viewer",
   "description": "View NumPy .npy files in VS Code — as images, heatmaps, contact sheets, plots and exact values, alongside full descriptive statistics. Recognises RGB, channel-first and batched image tensors from the array shape, opens files larger than memory, and needs no Python.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "subh-tools",
   "icon": "images/npy-viewer-logo.png",
   "license": "MIT",
@@ -28,6 +28,20 @@
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Arrays are parsed and rendered normally — reading a .npy file executes no code from the workspace. The optional Python/NumPy backend is not started in an untrusted workspace, because it launches an interpreter.",
+      "restrictedConfigurations": [
+        "npyViewer.python.path",
+        "npyViewer.python.enabled"
+      ]
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "Arrays are streamed directly from disk so that files larger than memory can be opened, which needs real filesystem access."
+    }
+  },
   "contributes": {
     "customEditors": [
       {
@@ -84,12 +98,14 @@
         "npyViewer.python.enabled": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Analyse arrays with a Python + NumPy subprocess when an interpreter is available. NumPy reads every dtype, including pickled object arrays, and computes exact quantiles on arrays too large for the built-in parser to hold in memory. When disabled — or when no interpreter is found — the built-in TypeScript parser is used instead; it needs no Python and is comparably fast on ordinary numeric arrays."
+          "scope": "machine",
+          "markdownDescription": "Analyse arrays with a Python + NumPy subprocess when an interpreter is available. NumPy reads every dtype, including pickled object arrays, and computes exact quantiles on arrays too large for the built-in parser to hold in memory. When disabled — or when no interpreter is found — the built-in TypeScript parser is used instead; it needs no Python and is comparably fast on ordinary numeric arrays.\n\nThis setting is machine-scoped: a workspace cannot turn the subprocess on for you."
         },
         "npyViewer.python.path": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Absolute path to the Python interpreter used for parsing. Leave empty to auto-detect (the Python extension's selected interpreter is preferred, then `python3` / `python` / `py` on `PATH`)."
+          "scope": "machine",
+          "markdownDescription": "Absolute path to the Python interpreter used for parsing. Leave empty to auto-detect (the Python extension's selected interpreter is preferred, then `python3` / `python` / `py` on `PATH`).\n\nThis setting is machine-scoped and can only be set in your user or remote settings. A folder you open must never be able to choose which executable this extension launches."
         },
         "npyViewer.python.showInstallHint": {
           "type": "boolean",

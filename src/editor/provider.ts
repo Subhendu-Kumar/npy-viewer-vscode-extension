@@ -141,6 +141,16 @@ export class NpyEditorProvider implements vscode.CustomReadonlyEditorProvider<Np
     post: (message: HostMessage) => void,
     token: vscode.CancellationToken,
   ): Promise<Session | null> {
+    // Arrays are streamed with node:fs, so a URI that has no real path on disk
+    // would otherwise surface as a bare ENOENT with the wrong filename in it.
+    if (document.uri.scheme !== "file") {
+      throw new Error(
+        `NPY Viewer needs direct filesystem access and cannot open "${document.uri.scheme}:" resources. ` +
+          "Arrays are read incrementally from disk so that files larger than memory can be opened, " +
+          "which a virtual or remote filesystem does not support. Download the file locally and open it from there.",
+      );
+    }
+
     const filePath = document.uri.fsPath;
     const fileName = path.basename(filePath);
     const config = readViewerConfig();
@@ -148,7 +158,7 @@ export class NpyEditorProvider implements vscode.CustomReadonlyEditorProvider<Np
     const maxElements = settings.get<number>("preview.maxElements", 2_000_000);
     const exactLimit = settings.get<number>(
       "stats.exactPercentileLimit",
-      20_000_000,
+      5_000_000,
     );
     const showInstallHint = settings.get<boolean>(
       "python.showInstallHint",

@@ -111,6 +111,13 @@ export function activate(context: vscode.ExtensionContext): void {
         python.reset();
       }
     }),
+
+    // The backend caches "no interpreter" for the session, so granting trust
+    // mid-session has to clear that or Python stays off until a reload.
+    vscode.workspace.onDidGrantWorkspaceTrust(() => {
+      python.reset();
+      log.appendLine("[trust] workspace trusted — re-detecting Python");
+    }),
   );
 }
 
