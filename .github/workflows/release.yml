@@ -91,6 +91,7 @@ jobs:
             extension/dist/webview.js \
             extension/dist/webview.css \
             extension/dist/npy_load.py \
+            extension/images/npy-viewer-logo.png \
             extension/package.json
           do
             if ! unzip -l "$vsix" | grep -qF "$required"; then

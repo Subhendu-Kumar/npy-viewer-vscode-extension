@@ -4,9 +4,9 @@ All notable changes to NPY Viewer are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.1] — 2026-08-07
+## [1.0.0] — 2026-08-07
 
-Initial release.
+First public release.
 
 ### Added
 
@@ -39,6 +39,9 @@ Initial release.
   pickled object arrays and exact quantiles on very large arrays.
 - `sample-npy-files/` — 37 arrays covering every supported view and dtype, with
   a seeded generator that reproduces them.
+- Extension icon, and GitHub Actions workflows that test on Linux and Windows,
+  check the NumPy backend against NumPy, and publish the `.vsix` to a GitHub
+  release on a version tag.
 
 ### Notes
 
