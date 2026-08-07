@@ -140,6 +140,9 @@ export function gradientCss(name: string, steps = 16): string {
 
 export type ScaleMode = "linear" | "log" | "symlog";
 
+/** Dynamic range a log scale covers when the data reaches zero: four decades. */
+const LOG_DECADES = 1e4;
+
 export interface RenderOptions {
   min: number;
   max: number;
@@ -162,10 +165,19 @@ function normalise(
   scale: ScaleMode,
 ): number {
   if (scale === "log") {
-    const lo = Math.max(min, 1e-12);
-    const hi = Math.max(max, lo * 10);
+    const hi = Math.max(max, Number.MIN_VALUE);
+    // Data that reaches zero has no logarithm, so the floor has to come from
+    // somewhere. Flooring at a tiny epsilon spans dozens of decades and pushes
+    // every real value into the top of the ramp — the picture goes flat. Cap
+    // the range at four decades below the maximum instead, which is what a log
+    // colour scale is normally understood to mean.
+    const lo = min > 0 ? min : hi / LOG_DECADES;
+    const span = Math.log(hi) - Math.log(lo);
+    if (!(span > 0)) {
+      return 0.5;
+    }
     const clamped = Math.max(value, lo);
-    return (Math.log(clamped) - Math.log(lo)) / (Math.log(hi) - Math.log(lo));
+    return (Math.log(clamped) - Math.log(lo)) / span;
   }
 
   if (scale === "symlog") {

@@ -293,7 +293,13 @@ export type HostMessage =
   | { type: "block"; requestId: number; payload: Block }
   | { type: "table"; requestId: number; payload: TableWindow }
   | { type: "config"; payload: ViewerConfig }
-  | { type: "status"; message: string; busy: boolean }
+  | {
+      type: "status";
+      message: string;
+      busy: boolean;
+      /** 0..1 when the work has a known extent; omitted when indeterminate. */
+      percent?: number;
+    }
   | { type: "error"; requestId?: number; message: string; detail?: string };
 
 export type WebviewMessage =

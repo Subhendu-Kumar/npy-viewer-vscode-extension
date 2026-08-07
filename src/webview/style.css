@@ -62,6 +62,32 @@ body {
 	margin: 0;
 }
 
+.hidden {
+	display: none;
+}
+
+.boot-progress {
+	width: 240px;
+	height: 4px;
+	border-radius: 2px;
+	overflow: hidden;
+	background: var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.3));
+}
+
+.boot-progress-fill {
+	height: 100%;
+	width: 0;
+	border-radius: 2px;
+	background: var(--vscode-progressBar-background, var(--vscode-focusBorder));
+	transition: width 120ms linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.boot-progress-fill {
+		transition: none;
+	}
+}
+
 .fatal {
 	padding: 32px;
 	max-width: 720px;

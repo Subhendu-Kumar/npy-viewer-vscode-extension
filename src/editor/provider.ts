@@ -14,7 +14,7 @@ import type {
 } from "../common/types";
 import { NpyFile } from "../core/npyFile";
 import { renderWebviewHtml } from "./html";
-import { computeStats } from "../core/stats";
+import { computeStats, isCancellation } from "../core/stats";
 import { buildInsights } from "../core/insights";
 import type { PythonBackend } from "../python/backend";
 import { detectLayout, refineDetection } from "../core/layout";
@@ -93,6 +93,12 @@ export class NpyEditorProvider implements vscode.CustomReadonlyEditorProvider<Np
           }
           await this.handle(raw, session, post);
         } catch (err) {
+          // The user closing the tab is not an error worth reporting back to a
+          // webview that is already going away.
+          if (isCancellation(err)) {
+            this.log.appendLine("[cancelled] analysis abandoned");
+            return;
+          }
           const message = err instanceof Error ? err.message : String(err);
           this.log.appendLine(`[error] ${message}`);
           post({
@@ -193,17 +199,37 @@ export class NpyEditorProvider implements vscode.CustomReadonlyEditorProvider<Np
 
     post({ type: "status", message: "Computing statistics…", busy: true });
 
-    const { bundle, backend } = await this.computeStatistics(
-      filePath,
-      file,
-      detection,
-      {
-        exactLimit,
-        histogramBins: config.histogramBins,
-        columnAxis,
-        showInstallHint,
-      },
+    // Closing the tab mid-analysis should stop the work, not just orphan it.
+    const controller = new AbortController();
+    const cancelSubscription = token.onCancellationRequested(() =>
+      controller.abort(),
     );
+
+    let bundle: StatsBundle;
+    let backend: BackendInfo;
+    try {
+      ({ bundle, backend } = await this.computeStatistics(
+        filePath,
+        file,
+        detection,
+        {
+          exactLimit,
+          histogramBins: config.histogramBins,
+          columnAxis,
+          showInstallHint,
+          signal: controller.signal,
+          onProgress: (fraction) =>
+            post({
+              type: "status",
+              message: "Computing statistics…",
+              busy: true,
+              percent: fraction,
+            }),
+        },
+      ));
+    } finally {
+      cancelSubscription.dispose();
+    }
 
     if (token.isCancellationRequested) {
       return null;
@@ -289,6 +315,8 @@ export class NpyEditorProvider implements vscode.CustomReadonlyEditorProvider<Np
       histogramBins: number;
       columnAxis: number | null;
       showInstallHint: boolean;
+      signal: AbortSignal;
+      onProgress: (fraction: number) => void;
     },
   ): Promise<{ bundle: StatsBundle; backend: BackendInfo }> {
     const { meta, dtype } = file;
@@ -298,12 +326,16 @@ export class NpyEditorProvider implements vscode.CustomReadonlyEditorProvider<Np
     if (probe) {
       try {
         const started = Date.now();
-        const result = await this.python.analyze(filePath, {
-          exactLimit: options.exactLimit,
-          histogramBins: options.histogramBins,
-          channelAxis,
-          columnAxis: options.columnAxis,
-        });
+        const result = await this.python.analyze(
+          filePath,
+          {
+            exactLimit: options.exactLimit,
+            histogramBins: options.histogramBins,
+            channelAxis,
+            columnAxis: options.columnAxis,
+          },
+          options.signal,
+        );
         if (result) {
           return {
             bundle: {
@@ -328,6 +360,11 @@ export class NpyEditorProvider implements vscode.CustomReadonlyEditorProvider<Np
           };
         }
       } catch (err) {
+        // A cancelled analysis is not a backend failure — falling back to the
+        // built-in parser here would restart exactly the work being abandoned.
+        if (isCancellation(err)) {
+          throw err;
+        }
         const message = err instanceof Error ? err.message : String(err);
         this.log.appendLine(
           `[python] analysis failed, falling back — ${message}`,
@@ -345,6 +382,8 @@ export class NpyEditorProvider implements vscode.CustomReadonlyEditorProvider<Np
         histogramBins: options.histogramBins,
         channelAxis,
         columnAxis: options.columnAxis,
+        signal: options.signal,
+        onProgress: options.onProgress,
       },
     );
 

@@ -16,7 +16,7 @@ import {
   refineDetection,
 } from "../core/layout";
 import { NpyFile } from "../core/npyFile";
-import { computeStats } from "../core/stats";
+import { computeStats, isCancellation } from "../core/stats";
 import { parseHeader, parsePythonLiteral } from "../core/npyHeader";
 
 // ---------------------------------------------------------------------------
@@ -456,6 +456,98 @@ suite("statistics", () => {
     assert.strictEqual(overall.skewness, 0);
     assert.strictEqual(overall.kurtosis, 0);
     assert.strictEqual(overall.min, overall.max);
+  });
+
+  test("reports progress as it scans", async () => {
+    // Larger than one 8 MB scan chunk, so the callback fires more than once.
+    const count = 1_500_000;
+    const data = Buffer.alloc(count * 8);
+    for (let i = 0; i < count; i += 1) {
+      data.writeDoubleLE(i % 1000, i * 8);
+    }
+
+    const fractions: number[] = [];
+    await withTempFile(makeNpy("<f8", [count], data), async (filePath) => {
+      const file = await NpyFile.open(filePath);
+      await computeStats(file.source, file.meta, file.dtype, file.dataOffset, {
+        exactLimit: 100_000,
+        histogramBins: 16,
+        channelAxis: null,
+        columnAxis: null,
+        onProgress: (fraction) => fractions.push(fraction),
+      });
+      await file.close();
+    });
+
+    assert.ok(fractions.length > 0, "onProgress was never called");
+    assert.ok(
+      fractions.every((f) => f >= 0 && f <= 1),
+      `fractions out of range: ${fractions}`,
+    );
+    // Monotonic, so the bar never jumps backwards.
+    for (let i = 1; i < fractions.length; i += 1) {
+      assert.ok(
+        fractions[i] >= fractions[i - 1],
+        `progress went backwards: ${fractions[i - 1]} -> ${fractions[i]}`,
+      );
+    }
+  });
+
+  test("aborts the scan when the signal fires", async () => {
+    const count = 1_500_000;
+    const data = Buffer.alloc(count * 8);
+    for (let i = 0; i < count; i += 1) {
+      data.writeDoubleLE(i, i * 8);
+    }
+
+    await withTempFile(makeNpy("<f8", [count], data), async (filePath) => {
+      // Aborting part-way through must throw rather than return partial stats.
+      const midway = new AbortController();
+      const file = await NpyFile.open(filePath);
+      await assert.rejects(
+        () =>
+          computeStats(file.source, file.meta, file.dtype, file.dataOffset, {
+            exactLimit: 100_000,
+            histogramBins: 16,
+            channelAxis: null,
+            columnAxis: null,
+            signal: midway.signal,
+            onProgress: () => midway.abort(),
+          }),
+        (err: unknown) => isCancellation(err),
+        "a mid-scan abort should raise a cancellation",
+      );
+
+      // An already-aborted signal stops before any work happens.
+      const upfront = AbortSignal.abort();
+      await assert.rejects(
+        () =>
+          computeStats(file.source, file.meta, file.dtype, file.dataOffset, {
+            exactLimit: 100_000,
+            histogramBins: 16,
+            channelAxis: null,
+            columnAxis: null,
+            signal: upfront,
+          }),
+        (err: unknown) => isCancellation(err),
+      );
+
+      // Without a signal the same array still summarises correctly.
+      const bundle = await computeStats(
+        file.source,
+        file.meta,
+        file.dtype,
+        file.dataOffset,
+        {
+          exactLimit: 100_000,
+          histogramBins: 16,
+          channelAxis: null,
+          columnAxis: null,
+        },
+      );
+      assert.strictEqual(bundle.overall?.total, count);
+      await file.close();
+    });
   });
 
   test("reports empty arrays as unsupported rather than as NaNs", async () => {

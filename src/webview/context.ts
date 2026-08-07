@@ -7,8 +7,29 @@ import type {
 } from "../common/types";
 import type { DecodedBlock } from "./decode";
 
+/**
+ * The slice of view state worth surviving a reload.
+ *
+ * Deliberately small and all-optional: it is restored best-effort, and anything
+ * that no longer makes sense for the file is dropped rather than trusted.
+ */
+export interface PersistedView {
+  tab?: string;
+  frame?: number;
+  colormap?: string;
+  scale?: string;
+  normalisation?: string;
+  alternate?: boolean;
+  rgb?: boolean;
+  mode?: string;
+}
+
 /** Services each view needs from the app shell. */
 export interface ViewContext {
+  /** View state carried over from the last time this file was open. */
+  readonly restored: PersistedView;
+  /** Merges `patch` into the persisted state for this file. */
+  persist(patch: PersistedView): void;
   readonly init: InitPayload;
   readonly config: ViewerConfig;
   /** The layout in force, honouring the channel-order toggle. */

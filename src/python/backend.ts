@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { spawn } from "node:child_process";
 
 import type { AxisStats, NumericStats, TextPreview } from "../common/types";
+import { OperationCancelledError } from "../core/stats";
 
 /** Probe/analysis timeouts. The first run pays for importing NumPy. */
 const PROBE_TIMEOUT_MS = 15_000;
@@ -217,6 +218,7 @@ export class PythonBackend {
   async analyze(
     filePath: string,
     options: AnalyzeOptions,
+    signal?: AbortSignal,
   ): Promise<AnalyzeResult | null> {
     const probe = await this.probe();
     if (!probe) {
@@ -245,7 +247,7 @@ export class PythonBackend {
       text: TextPreview | null;
       pickled: boolean;
       interpretation: string;
-    }>(probe, args, ANALYZE_TIMEOUT_MS);
+    }>(probe, args, ANALYZE_TIMEOUT_MS, signal);
 
     return {
       stats: result.stats ? coerceStats(result.stats) : null,
@@ -261,6 +263,7 @@ export class PythonBackend {
     interpreter: Interpreter,
     scriptArgs: string[],
     timeoutMs: number,
+    signal?: AbortSignal,
   ): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const child = spawn(
@@ -280,6 +283,7 @@ export class PythonBackend {
         }
         settled = true;
         clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
         if (err) {
           reject(err);
         } else {
@@ -291,6 +295,18 @@ export class PythonBackend {
         child.kill();
         finish(new Error(`timed out after ${Math.round(timeoutMs / 1000)}s`));
       }, timeoutMs);
+
+      // Closing the tab should not leave NumPy chewing through a 40 GB array.
+      const onAbort = (): void => {
+        child.kill();
+        finish(new OperationCancelledError("Analysis cancelled"));
+      };
+
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+      signal?.addEventListener("abort", onAbort, { once: true });
 
       child.stdout.on("data", (chunk: Buffer) => {
         size += chunk.length;

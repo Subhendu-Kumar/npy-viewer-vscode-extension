@@ -16,6 +16,24 @@ const MAX_TRACKED_UNIQUE = 8192;
 /** Groups (channels / columns) broken out individually. */
 const MAX_GROUPS = 512;
 
+/**
+ * Thrown when a caller aborts a long-running pass.
+ *
+ * Distinguishable by name so callers can swallow it quietly instead of showing
+ * the user an error for something they asked for.
+ */
+export class OperationCancelledError extends Error {
+  override readonly name = "OperationCancelledError";
+
+  constructor(message = "Operation cancelled") {
+    super(message);
+  }
+}
+
+export function isCancellation(error: unknown): boolean {
+  return error instanceof OperationCancelledError;
+}
+
 export interface StatsOptions {
   /** Element count up to which every value is retained for exact quantiles. */
   exactLimit: number;
@@ -24,7 +42,10 @@ export interface StatsOptions {
   channelAxis?: number | null;
   /** Axis broken out per-column, with its extent. */
   columnAxis?: number | null;
+  /** Called with a 0..1 fraction as the scan proceeds. */
   onProgress?: (fraction: number) => void;
+  /** Aborts the scan; a cancelled pass throws {@link OperationCancelledError}. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -372,6 +393,12 @@ export async function computeStats(
     meta.dataBytes,
     itemsize,
   )) {
+    // Checked per chunk rather than per element: chunks are 8 MB, so this
+    // responds within a few milliseconds without costing anything in the loop.
+    if (options.signal?.aborted) {
+      throw new OperationCancelledError("Statistics cancelled");
+    }
+
     const view = new DataView(
       buffer.buffer,
       buffer.byteOffset,

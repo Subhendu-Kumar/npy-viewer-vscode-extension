@@ -5,6 +5,9 @@ out/**
 node_modules/**
 src/**
 sample-npy-files/**
+# The Marketplace loads README images from the repository — vsce rewrites the
+# relative links to raw GitHub URLs — so shipping them is dead weight.
+images/screenshots/**
 .gitignore
 .gitattributes
 .yarnrc

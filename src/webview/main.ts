@@ -12,7 +12,7 @@ import { MetaView } from "./views/meta";
 import { button, clear, el } from "./dom";
 import { StatsView } from "./views/stats";
 import { VisualView } from "./views/visual";
-import type { ViewContext } from "./context";
+import type { PersistedView, ViewContext } from "./context";
 import { fmtBytes, fmtCount, fmtShape } from "./format";
 import { decodeBlock, type DecodedBlock } from "./decode";
 
@@ -51,9 +51,13 @@ class App implements ViewContext {
   private readonly data: DataView;
   private readonly meta: MetaView;
 
+  readonly restored: PersistedView;
+
   constructor(payload: InitPayload) {
     this.init = payload;
     this.config = payload.config;
+    this.restored = readPersisted(payload.filePath);
+    // Views read `restored` in their constructors, so it has to be set first.
     this.visual = new VisualView(this);
     this.stats = new StatsView(this);
     this.data = new DataView(this);
@@ -61,6 +65,10 @@ class App implements ViewContext {
   }
 
   // -- ViewContext -----------------------------------------------------------
+
+  persist(patch: PersistedView): void {
+    writePersisted(this.init.filePath, patch);
+  }
 
   layout(alternate: boolean): Layout | null {
     const { detection } = this.init;
@@ -109,6 +117,7 @@ class App implements ViewContext {
 
   openTab(id: string): void {
     this.activeTab = id;
+    this.persist({ tab: id });
     this.renderTabs();
     this.renderBody();
   }
@@ -158,7 +167,10 @@ class App implements ViewContext {
     clear(root);
 
     this.tabs = this.buildTabs();
-    this.activeTab = this.tabs[0]?.id ?? "";
+    // Only honour a remembered tab that this file actually has — a stats-only
+    // array reopened after an image would otherwise land on a tab that is gone.
+    const remembered = this.tabs.find((tab) => tab.id === this.restored.tab);
+    this.activeTab = remembered?.id ?? this.tabs[0]?.id ?? "";
 
     const header = this.header();
     this.tabStrip = el("div", { class: "tabs", role: "tablist" });
@@ -234,7 +246,10 @@ class App implements ViewContext {
         el("button", {
           class: `tab${tab.id === this.activeTab ? " active" : ""}`,
           role: "tab",
-          "aria-selected": tab.id === this.activeTab,
+          // Must be the literal string: `el` renders `true` as an empty
+          // attribute and drops `false` entirely, so a boolean here would
+          // leave screen readers unable to tell which tab is selected.
+          "aria-selected": tab.id === this.activeTab ? "true" : "false",
           text: tab.label,
           onclick: () => this.openTab(tab.id),
         }),
@@ -317,6 +332,35 @@ function chip(text: string): HTMLElement {
 }
 
 // ---------------------------------------------------------------------------
+// View state
+// ---------------------------------------------------------------------------
+
+/**
+ * View state is keyed by file path inside the webview's own state bag.
+ *
+ * A panel only ever shows one file, so the key is belt-and-braces — but it
+ * means a panel that is reused for a different array starts clean instead of
+ * inheriting a frame index that means nothing there.
+ */
+type StateBag = Record<string, PersistedView>;
+
+function readBag(): StateBag {
+  const raw = vscode.getState();
+  return raw && typeof raw === "object" ? (raw as StateBag) : {};
+}
+
+function readPersisted(filePath: string): PersistedView {
+  const stored = readBag()[filePath];
+  return stored && typeof stored === "object" ? stored : {};
+}
+
+function writePersisted(filePath: string, patch: PersistedView): void {
+  const bag = readBag();
+  bag[filePath] = { ...bag[filePath], ...patch };
+  vscode.setState(bag);
+}
+
+// ---------------------------------------------------------------------------
 // Bootstrap
 // ---------------------------------------------------------------------------
 
@@ -337,10 +381,7 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
 
     case "status":
       if (!app && message.busy) {
-        const text = root.querySelector(".boot-text");
-        if (text) {
-          text.textContent = message.message;
-        }
+        renderBootStatus(root, message.message, message.percent);
       }
       return;
 
@@ -362,6 +403,52 @@ window.addEventListener("message", (event: MessageEvent<HostMessage>) => {
       app?.settle(message);
   }
 });
+
+/**
+ * Updates the boot screen while the host works.
+ *
+ * A determinate bar appears as soon as the host reports a fraction, which on a
+ * multi-gigabyte array is the difference between "frozen" and "working".
+ */
+function renderBootStatus(
+  host: HTMLElement,
+  message: string,
+  percent?: number,
+): void {
+  const text = host.querySelector(".boot-text");
+  if (text) {
+    text.textContent = message;
+  }
+
+  const boot = host.querySelector(".boot");
+  if (percent === undefined || !boot) {
+    return;
+  }
+
+  let track = boot.querySelector<HTMLElement>(".boot-progress");
+  if (!track) {
+    track = el(
+      "div",
+      {
+        class: "boot-progress",
+        role: "progressbar",
+        "aria-valuemin": "0",
+        "aria-valuemax": "100",
+      },
+      [el("div", { class: "boot-progress-fill" })],
+    );
+    boot.append(track);
+    // The indeterminate spinner is redundant once there is a real number.
+    boot.querySelector(".boot-spinner")?.classList.add("hidden");
+  }
+
+  const clamped = Math.max(0, Math.min(1, percent));
+  track.setAttribute("aria-valuenow", String(Math.round(clamped * 100)));
+  const fill = track.firstElementChild as HTMLElement | null;
+  if (fill) {
+    fill.style.width = `${clamped * 100}%`;
+  }
+}
 
 function renderFatal(
   host: HTMLElement,

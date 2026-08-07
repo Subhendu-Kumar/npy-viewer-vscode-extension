@@ -4,6 +4,30 @@ All notable changes to NPY Viewer are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] — 2026-08-08
+
+### Added
+
+- Determinate **progress** while statistics are computed. The scan already
+  reported a fraction and nothing consumed it, so a multi-gigabyte array showed
+  a static "Computing statistics…" for several seconds.
+- Analysis is now genuinely **cancellable**. Closing the tab aborts the scan and
+  kills the NumPy subprocess instead of leaving both running to completion.
+- The **view is remembered per file** — tab, mode, frame, colormap, scale,
+  normalisation and channel order survive a reload. Anything that no longer
+  applies to the array is discarded rather than restored blindly.
+- Screenshots in the README.
+
+### Fixed
+
+- The **logarithmic colour scale** was unusable on data that reaches zero. It
+  floored the range at `1e-12`, so the scale spanned dozens of decades and
+  compressed every real value into the top of the ramp — a heightmap came out
+  almost uniformly yellow. It now covers four decades below the maximum.
+- Tabs reported `aria-selected=""` when selected and omitted the attribute
+  entirely when not, leaving screen readers unable to tell which tab was
+  active.
+
 ## [1.0.1] — 2026-08-07
 
 A security release. Upgrading is recommended for anyone who opens `.npy` files

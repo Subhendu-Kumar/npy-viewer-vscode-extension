@@ -2,7 +2,7 @@
   "name": "npy-viewer",
   "displayName": "NPY Viewer",
   "description": "View NumPy .npy files in VS Code — as images, heatmaps, contact sheets, plots and exact values, alongside full descriptive statistics. Recognises RGB, channel-first and batched image tensors from the array shape, opens files larger than memory, and needs no Python.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "publisher": "subh-tools",
   "icon": "images/npy-viewer-logo.png",
   "license": "MIT",

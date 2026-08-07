@@ -7,6 +7,32 @@ statistics you would otherwise write a script to get.
 Click any `.npy` file in the Explorer. There is nothing to configure and no
 Python required.
 
+## What it looks like
+
+An `(H, W, 3)` uint8 array is a photograph, so it is drawn as one:
+
+![An RGB array rendered as an image, with the shape, dtype and size in the header](images/screenshots/01-image.png)
+
+A `(64, 28, 28)` stack becomes a contact sheet — click any tile to open that
+frame:
+
+![64 handwritten digits shown as a grid of thumbnails](images/screenshots/02-grid.png)
+
+Every array gets the statistics you would otherwise write a script for, led by
+the observations worth noticing first:
+
+![The statistics tab, showing a NaN warning, stat tiles, a histogram, a box plot and a percentile table](images/screenshots/03-statistics.png)
+
+Heatmaps come with eight colormaps, three normalisation ranges, and log or
+symlog scaling for data with a wide dynamic range:
+
+![A terrain heightmap drawn as a viridis heatmap on a logarithmic scale](images/screenshots/04-heatmap.png)
+
+Structured and non-numeric dtypes fall back to an exact table, one column per
+record field:
+
+![A structured record array shown as a table with one column per field](images/screenshots/05-data.png)
+
 ## What it does
 
 **Works out what the array is.** The viewer reads the shape and dtype and picks

@@ -10,10 +10,15 @@ import { fmt, fmtTick } from "../format";
 import type { ViewContext } from "../context";
 import { decodeBlock, type DecodedBlock } from "../decode";
 import { button, checkbox, clear, el, select } from "../dom";
-import type { Layout, NumericStats } from "../../common/types";
+import type { Detection, Layout, NumericStats } from "../../common/types";
 
 type Mode = "image" | "heatmap" | "grid" | "line";
 type Normalisation = "auto" | "dtype" | "robust";
+
+/** Accepted values, used to validate anything restored from a previous session. */
+const MODES = new Set<Mode>(["image", "heatmap", "grid", "line"]);
+const SCALES = new Set<ScaleMode>(["linear", "log", "symlog"]);
+const NORMALISATIONS = new Set<Normalisation>(["auto", "dtype", "robust"]);
 
 /** Thumbnails requested per page in the grid view. */
 const GRID_PAGE = 64;
@@ -63,7 +68,7 @@ export class VisualView {
       !detection.isImageLike,
     );
 
-    this.state = {
+    const defaults: State = {
       mode: initialMode(detection.primary, layout),
       frame: 0,
       // Signed data reads far better on a diverging ramp centred at zero.
@@ -75,6 +80,50 @@ export class VisualView {
       zoom: 1,
       fit: true,
     };
+
+    // Everything restored is validated against this file rather than trusted:
+    // a remembered frame index or colormap may be meaningless here.
+    const saved = ctx.restored;
+    const frameCount = layout?.frameCount ?? 1;
+
+    this.state = {
+      ...defaults,
+      mode: isModeAvailable(saved.mode, detection, layout)
+        ? (saved.mode as Mode)
+        : defaults.mode,
+      frame:
+        typeof saved.frame === "number" &&
+        Number.isInteger(saved.frame) &&
+        saved.frame >= 0 &&
+        saved.frame < frameCount
+          ? saved.frame
+          : defaults.frame,
+      colormap: COLORMAP_NAMES.includes(saved.colormap ?? "")
+        ? (saved.colormap as string)
+        : defaults.colormap,
+      scale: SCALES.has(saved.scale as ScaleMode)
+        ? (saved.scale as ScaleMode)
+        : defaults.scale,
+      normalisation: NORMALISATIONS.has(saved.normalisation as Normalisation)
+        ? (saved.normalisation as Normalisation)
+        : defaults.normalisation,
+      // Only meaningful when this array actually has a second reading.
+      alternate: Boolean(saved.alternate) && Boolean(detection.alternateLayout),
+      rgb: typeof saved.rgb === "boolean" ? saved.rgb : defaults.rgb,
+    };
+  }
+
+  /** The subset of view state worth carrying across a reload. */
+  private save(): void {
+    this.ctx.persist({
+      mode: this.state.mode,
+      frame: this.state.frame,
+      colormap: this.state.colormap,
+      scale: this.state.scale,
+      normalisation: this.state.normalisation,
+      alternate: this.state.alternate,
+      rgb: this.state.rgb,
+    });
   }
 
   /** Blocks arrive pre-decoded from the shell; adopt them as they land. */
@@ -290,6 +339,7 @@ export class VisualView {
 
   private update(patch: Partial<State>): void {
     this.state = { ...this.state, ...patch };
+    this.save();
     if (this.host) {
       this.render(this.host);
     }
@@ -314,6 +364,7 @@ export class VisualView {
 
     this.loading = true;
     this.state.frame = target;
+    this.save();
     try {
       this.block = await this.ctx.requestBlock(
         [target],
@@ -336,6 +387,7 @@ export class VisualView {
     this.state.alternate = alternate;
     this.state.frame = 0;
     this.state.rgb = layout.channels >= 3;
+    this.save();
     this.block = await this.ctx.requestBlock(
       [0],
       this.ctx.config.imageMaxSide,
@@ -698,6 +750,30 @@ export class VisualView {
       base64: dataUrl.slice(dataUrl.indexOf(",") + 1),
       suggestedName: `${base}-frame${this.state.frame}.png`,
     });
+  }
+}
+
+/**
+ * Whether a remembered mode still applies to this array.
+ *
+ * Availability mirrors the toolbar exactly: restoring `grid` for a single-frame
+ * array would select a button that is not there to un-select.
+ */
+function isModeAvailable(
+  mode: string | undefined,
+  detection: Detection,
+  layout: Layout | null,
+): boolean {
+  if (!mode || !MODES.has(mode as Mode) || !layout) {
+    return false;
+  }
+  switch (mode as Mode) {
+    case "grid":
+      return layout.frameCount > 1;
+    case "line":
+      return layout.height === 1 || layout.width === 1;
+    default:
+      return detection.available.includes(mode as "image" | "heatmap");
   }
 }
 
