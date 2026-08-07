@@ -10,6 +10,7 @@ sample-npy-files/**
 .yarnrc
 esbuild.js
 CONTRIBUTING.md
+**/*.local.md
 **/tsconfig.json
 **/eslint.config.mjs
 **/*.map

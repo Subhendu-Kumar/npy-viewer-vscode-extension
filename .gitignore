@@ -4,5 +4,9 @@ node_modules
 .vscode-test/
 *.vsix
 
-# Generated on demand by sample-npy-files/generate.py --large
+# Sample arrays are reproducible from sample-npy-files/generate.py, so they are
+# generated rather than committed. CI regenerates them before using them.
 sample-npy-files/*.npy
+
+# Personal working notes and plans — never committed.
+*.local.md
