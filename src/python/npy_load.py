@@ -17,10 +17,10 @@ magnitude faster than the JavaScript fallback on large arrays, and because it
 computes exact quantiles on arrays far larger than the fallback can sort.
 """
 
-import argparse
+import sys
 import json
 import math
-import sys
+import argparse
 
 PERCENTILES = [0.1, 1, 5, 10, 25, 50, 75, 90, 95, 99, 99.9]
 
@@ -253,12 +253,18 @@ def build_histogram(np, sample, state, bins, scale):
     count = bins
     span = hi - lo
 
-    if lo == hi:
-        lo, hi = lo - 0.5, hi + 0.5
-    elif state["integral"] and span + 1 <= bins:
+    if state["integral"] and span > 0 and span + 1 <= bins:
         # One bin per integer value reads far better than arbitrary buckets.
         count = int(span) + 1
         lo, hi = lo - 0.5, hi + 0.5
+
+    if not hi > lo:
+        # Padding by a fixed 0.5 is a no-op once the values are large enough
+        # that half a unit falls below one ulp — at 6e23 the spacing is already
+        # 6.7e7. Scale the padding to the magnitude so a constant array still
+        # gets a drawable range.
+        pad = max(abs(lo) * 1e-9, 0.5)
+        lo, hi = lo - pad, hi + pad
 
     counts, edges = np.histogram(sample, bins=count, range=(lo, hi))
     if scale > 1.0001:

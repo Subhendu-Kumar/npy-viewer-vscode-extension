@@ -1,5 +1,5 @@
-import type { ViewContext } from "../context";
 import { clear, el } from "../dom";
+import type { ViewContext } from "../context";
 import { fmtBytes, fmtCount, fmtShape } from "../format";
 
 /** File header, dtype details and which backend read the array. */

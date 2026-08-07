@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
-import { NpyEditorProvider } from "./editor/provider";
+
 import { PythonBackend } from "./python/backend";
+import { NpyEditorProvider } from "./editor/provider";
 
 export function activate(context: vscode.ExtensionContext): void {
   const log = vscode.window.createOutputChannel("NPY Viewer");

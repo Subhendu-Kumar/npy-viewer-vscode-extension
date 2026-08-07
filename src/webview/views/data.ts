@@ -1,8 +1,8 @@
-import type { TableWindow } from "../../common/types";
+import { fmtCount } from "../format";
 import { sampleColor } from "../colormap";
 import type { ViewContext } from "../context";
 import { button, checkbox, clear, el } from "../dom";
-import { fmtCount } from "../format";
+import type { TableWindow } from "../../common/types";
 
 const ROW_PAGE = 100;
 const COL_PAGE = 40;

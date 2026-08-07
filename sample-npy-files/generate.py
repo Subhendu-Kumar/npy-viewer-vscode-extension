@@ -11,12 +11,12 @@ recognisable to draw and each statistic has a real distribution behind it.
 Requires only NumPy.
 """
 
-import argparse
 import os
-
+import argparse
 import numpy as np
 
 OUT = os.path.dirname(os.path.abspath(__file__))
+
 rng = np.random.default_rng(20240501)
 
 manifest = []

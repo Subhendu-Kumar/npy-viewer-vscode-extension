@@ -1,12 +1,13 @@
-import * as assert from "assert";
-import * as fs from "node:fs/promises";
 import * as os from "node:os";
+import * as assert from "assert";
 import * as path from "node:path";
+import * as fs from "node:fs/promises";
+
 import {
-  formatScalar,
   parseDescr,
-  readFloat16,
   trimNumber,
+  readFloat16,
+  formatScalar,
 } from "../core/dtype";
 import {
   detectLayout,
@@ -15,8 +16,8 @@ import {
   refineDetection,
 } from "../core/layout";
 import { NpyFile } from "../core/npyFile";
-import { parseHeader, parsePythonLiteral } from "../core/npyHeader";
 import { computeStats } from "../core/stats";
+import { parseHeader, parsePythonLiteral } from "../core/npyHeader";
 
 // ---------------------------------------------------------------------------
 // Fixture construction
@@ -379,6 +380,40 @@ suite("statistics", () => {
     assert.strictEqual(overall.sparsity, 0.6);
   });
 
+  test("computes the median absolute deviation", async () => {
+    // |x - 4| over [1,2,3,4,5,6,7] is [3,2,1,0,1,2,3]; its median is 2.
+    assert.strictEqual(
+      (await run([1, 2, 3, 4, 5, 6, 7])).overall?.madMedian,
+      2,
+    );
+    // Even count: median of [1,2,3,4] is 2.5, deviations [1.5,0.5,0.5,1.5] -> 1.
+    assert.strictEqual((await run([1, 2, 3, 4])).overall?.madMedian, 1);
+    // A single value has no spread at all.
+    assert.strictEqual((await run([9])).overall?.madMedian, 0);
+  });
+
+  test("keeps quantiles clear of NaN and infinities", async () => {
+    // The finite values are 1..5, so every quantile must come from those alone
+    // even though the sample also holds NaN and both infinities.
+    const { overall } = await run([
+      3,
+      Number.NaN,
+      1,
+      Number.POSITIVE_INFINITY,
+      5,
+      Number.NEGATIVE_INFINITY,
+      2,
+      4,
+    ]);
+    assert.ok(overall);
+    assert.strictEqual(overall.median, 3);
+    assert.strictEqual(overall.percentiles["25"], 2);
+    assert.strictEqual(overall.percentiles["75"], 4);
+    assert.strictEqual(overall.madMedian, 1);
+    assert.strictEqual(overall.min, 1);
+    assert.strictEqual(overall.max, 5);
+  });
+
   test("withholds the coefficient of variation for signed data", async () => {
     assert.strictEqual((await run([-5, 0, 5])).overall?.cv, null);
     const positive = (await run([2, 4, 6])).overall;
@@ -395,6 +430,23 @@ suite("statistics", () => {
   test("gives integer data one bin per value", async () => {
     const { overall } = await run([1, 2, 3, 4, 5, 5, 5]);
     assert.strictEqual(overall?.histogram?.counts.length, 5);
+  });
+
+  test("bins huge constant values instead of dropping them", async () => {
+    // At 6e23 one ulp is 6.7e7, so padding the range by 0.5 leaves it empty and
+    // every value lands in a NaN bin. The count must survive regardless.
+    const huge = await run([6.02214076e23, 6.02214076e23, 6.02214076e23]);
+    const counts = huge.overall?.histogram?.counts ?? [];
+    assert.strictEqual(
+      counts.reduce((a, b) => a + b, 0),
+      3,
+    );
+
+    const ordinary = await run([7, 7, 7, 7]);
+    assert.strictEqual(
+      (ordinary.overall?.histogram?.counts ?? []).reduce((a, b) => a + b, 0),
+      4,
+    );
   });
 
   test("summarises a constant array without dividing by zero", async () => {

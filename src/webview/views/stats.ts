@@ -1,7 +1,7 @@
-import type { AxisStats, Insight, NumericStats } from "../../common/types";
-import { drawBoxPlot, drawHistogram, drawValueCounts } from "../charts";
-import type { ViewContext } from "../context";
 import { clear, el } from "../dom";
+import type { ViewContext } from "../context";
+import { drawBoxPlot, drawHistogram, drawValueCounts } from "../charts";
+import type { AxisStats, Insight, NumericStats } from "../../common/types";
 import { fmt, fmtBytes, fmtCount, fmtDuration, fmtPercent } from "../format";
 
 /** Descriptive statistics and the observations that follow from them. */

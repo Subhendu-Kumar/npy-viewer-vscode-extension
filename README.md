@@ -84,17 +84,17 @@ the interpreter selected in the Python extension, then `python3` / `python` /
 
 ## Settings
 
-| Setting                                | Default    | Effect                                        |
-| -------------------------------------- | ---------- | --------------------------------------------- |
-| `npyViewer.python.enabled`             | `true`     | Use NumPy for analysis when available         |
-| `npyViewer.python.path`                | `""`       | Explicit interpreter path; empty auto-detects |
-| `npyViewer.python.showInstallHint`     | `true`     | Show the hint when falling back               |
-| `npyViewer.preview.maxElements`        | `2000000`  | Cap on elements sent to the view              |
-| `npyViewer.preview.imageMaxSide`       | `1600`     | Longest edge of an image preview              |
-| `npyViewer.stats.exactPercentileLimit` | `20000000` | Above this, quantiles are sampled             |
-| `npyViewer.stats.histogramBins`        | `64`       | Histogram bin count                           |
-| `npyViewer.view.colormap`              | `viridis`  | Default colormap                              |
-| `npyViewer.view.autoNormalize`         | `true`     | Stretch float imagery to its own range        |
+| Setting                                | Default   | Effect                                        |
+| -------------------------------------- | --------- | --------------------------------------------- |
+| `npyViewer.python.enabled`             | `true`    | Use NumPy for analysis when available         |
+| `npyViewer.python.path`                | `""`      | Explicit interpreter path; empty auto-detects |
+| `npyViewer.python.showInstallHint`     | `true`    | Show the hint when falling back               |
+| `npyViewer.preview.maxElements`        | `2000000` | Cap on elements sent to the view              |
+| `npyViewer.preview.imageMaxSide`       | `1600`    | Longest edge of an image preview              |
+| `npyViewer.stats.exactPercentileLimit` | `5000000` | Above this, quantiles are sampled             |
+| `npyViewer.stats.histogramBins`        | `64`      | Histogram bin count                           |
+| `npyViewer.view.colormap`              | `viridis` | Default colormap                              |
+| `npyViewer.view.autoNormalize`         | `true`    | Stretch float imagery to its own range        |
 
 ## Commands
 
@@ -103,10 +103,28 @@ the interpreter selected in the Python extension, then `python3` / `python` /
 - **NPY: Show Parsing Backend Info**
 - **NPY: Reload Array**
 
-## Scope
+## Scope and limits
 
 `.npy` only. `.npz` archives are not opened — extract the member arrays first.
 The viewer is read-only; it never writes to the file.
+
+A few things worth knowing rather than discovering:
+
+- **Counts, extrema, mean and standard deviation are always exact**, over every
+  element, however large the array. The median, percentiles, histogram and
+  distinct-value count come from a uniform random sample once the array exceeds
+  `stats.exactPercentileLimit`, and are labelled _approximate_ when they do.
+- **`int64` and `uint64` values beyond 2⁵³** cannot be held exactly in a
+  double, so statistics over them carry a small relative error — as they would
+  in any float64 computation, NumPy's included. The data table reads such values
+  through a separate exact path and shows every digit.
+- **`float128` and nested record dtypes** get statistics and a text preview but
+  no interactive visual; neither has a JavaScript representation.
+- **Complex arrays** are summarised and plotted by magnitude. The data table
+  shows the full `a+bj` value.
+- The **most-frequent-values breakdown** appears only when values actually
+  repeat; on continuous data every value is distinct and the chart would say
+  nothing the distinct count does not.
 
 ## Sample files
 
@@ -116,13 +134,19 @@ a hyperspectral cube, records, pickled objects, and the awkward edge cases.
 Open any of them to see what the viewer does. `sample-npy-files/README.md`
 explains what each one demonstrates, and `generate.py` regenerates them.
 
-## Development
+## Contributing
 
 ```sh
 npm install
 npm run watch     # rebuilds extension and webview bundles
-npm test          # runs the core test suite in an extension host
+npm test          # runs the test suite in an extension host
 ```
 
 Press <kbd>F5</kbd> to launch an Extension Development Host, then open any
-`.npy` file from `sample-npy-files/`.
+`.npy` file from `sample-npy-files/`. See [CONTRIBUTING.md](CONTRIBUTING.md) for
+the architecture, how to verify changes against NumPy, and what a change needs
+to hold to.
+
+## Licence
+
+[MIT](LICENSE).

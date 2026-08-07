@@ -1,26 +1,29 @@
 {
   "name": "npy-viewer",
-  "displayName": "npy viewer",
-  "description": "NPY Viewer is a fast and lightweight Visual Studio Code extension for viewing NumPy (`.npy`) files directly within the editor. It allows you to inspect array contents, shape, dimensions, data type, and other metadata through an intuitive interface, making it easy to explore machine learning datasets, scientific data, and numerical arrays without writing Python scripts or leaving VS Code.",
+  "displayName": "NPY Viewer",
+  "description": "View NumPy .npy files in VS Code — as images, heatmaps, contact sheets, plots and exact values, alongside full descriptive statistics. Recognises RGB, channel-first and batched image tensors from the array shape, opens files larger than memory, and needs no Python.",
   "version": "0.0.1",
   "publisher": "subh-tools",
+  "license": "MIT",
   "engines": {
     "vscode": "^1.125.0"
   },
   "categories": [
     "Visualization",
     "Data Science",
-    "Machine Learning",
-    "Other"
+    "Machine Learning"
   ],
   "keywords": [
     "numpy",
     "npy",
     "array",
     "tensor",
+    "ndarray",
     "data science",
     "eda",
-    "visualization"
+    "statistics",
+    "visualization",
+    "image viewer"
   ],
   "activationEvents": [],
   "main": "./dist/extension.js",
@@ -106,9 +109,9 @@
         },
         "npyViewer.stats.exactPercentileLimit": {
           "type": "number",
-          "default": 20000000,
+          "default": 5000000,
           "minimum": 100000,
-          "markdownDescription": "Element count up to which percentiles and the median are computed exactly. Above this, they are estimated from a uniform reservoir sample and labelled *approximate*."
+          "markdownDescription": "Element count up to which percentiles and the median are computed exactly. Above this they are estimated from a uniform random sample and labelled *approximate*. Counts, extrema, mean and standard deviation are always exact over every element, whatever this is set to.\n\nThe sample is held in memory at 8 bytes per element, so raising this costs roughly 8 MB per million. Sampling error on the median is negligible well below the default."
         },
         "npyViewer.stats.histogramBins": {
           "type": "number",
@@ -172,6 +175,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Subhendu-Kumar/npy-viewer-vscode-extension"
+    "url": "git+https://github.com/Subhendu-Kumar/npy-viewer-vscode-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Subhendu-Kumar/npy-viewer-vscode-extension/issues"
+  },
+  "homepage": "https://github.com/Subhendu-Kumar/npy-viewer-vscode-extension#readme",
+  "allowScripts": {
+    "esbuild@0.28.1": true
   }
 }

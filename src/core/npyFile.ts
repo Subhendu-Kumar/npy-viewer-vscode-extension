@@ -1,19 +1,19 @@
+import {
+  parseDescr,
+  formatScalar,
+  makeScalarReader,
+  type ParsedDtype,
+} from "./dtype";
 import type {
-  ArrayMeta,
   Block,
   Layout,
+  ArrayMeta,
   TableWindow,
   TextPreview,
 } from "../common/types";
-import {
-  formatScalar,
-  makeScalarReader,
-  parseDescr,
-  type ParsedDtype,
-} from "./dtype";
+import { ByteSource, MAX_WINDOW_BYTES } from "./reader";
 import { computeStrides, frameToIndices } from "./layout";
 import { parseHeader, HEADER_PROBE_BYTES } from "./npyHeader";
-import { ByteSource, MAX_WINDOW_BYTES } from "./reader";
 
 /** Rows/records shown in the fallback text view. */
 const TEXT_PREVIEW_ROWS = 500;

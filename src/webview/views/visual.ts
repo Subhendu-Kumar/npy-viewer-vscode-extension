@@ -1,16 +1,16 @@
-import type { Layout, NumericStats } from "../../common/types";
-import { drawLine } from "../charts";
 import {
-  COLORMAP_NAMES,
   DIVERGING,
   gradientCss,
   renderPlane,
+  COLORMAP_NAMES,
   type ScaleMode,
 } from "../colormap";
+import { drawLine } from "../charts";
+import { fmt, fmtTick } from "../format";
 import type { ViewContext } from "../context";
 import { decodeBlock, type DecodedBlock } from "../decode";
 import { button, checkbox, clear, el, select } from "../dom";
-import { fmt, fmtTick } from "../format";
+import type { Layout, NumericStats } from "../../common/types";
 
 type Mode = "image" | "heatmap" | "grid" | "line";
 type Normalisation = "auto" | "dtype" | "robust";

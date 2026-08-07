@@ -1,5 +1,6 @@
-import { spawn } from "node:child_process";
 import * as vscode from "vscode";
+import { spawn } from "node:child_process";
+
 import type { AxisStats, NumericStats, TextPreview } from "../common/types";
 
 /** Probe/analysis timeouts. The first run pays for importing NumPy. */

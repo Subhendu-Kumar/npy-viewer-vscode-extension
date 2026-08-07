@@ -1,6 +1,6 @@
-import type { Histogram, NumericStats, ValueCount } from "../common/types";
 import { el, sizeCanvas, themeColor } from "./dom";
 import { fmt, fmtCount, fmtPercent, fmtTick } from "./format";
+import type { Histogram, NumericStats, ValueCount } from "../common/types";
 
 interface Palette {
   series: string;

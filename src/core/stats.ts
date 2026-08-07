@@ -2,13 +2,13 @@ import type {
   ArrayMeta,
   AxisStats,
   Histogram,
-  NumericStats,
-  StatsBundle,
   ValueCount,
+  StatsBundle,
+  NumericStats,
 } from "../common/types";
-import { makeScalarReader, trimNumber, type ParsedDtype } from "./dtype";
 import { computeStrides } from "./layout";
 import type { ByteSource } from "./reader";
+import { makeScalarReader, trimNumber, type ParsedDtype } from "./dtype";
 
 /** Distinct values tracked before giving up on an exact cardinality count. */
 const MAX_TRACKED_UNIQUE = 8192;
@@ -183,9 +183,100 @@ class Reservoir {
     return Math.floor(Math.log(Math.random()) / Math.log(1 - this.w)) + 1;
   }
 
-  toSorted(): Float64Array {
-    return this.values.subarray(0, this.filled).slice().sort();
+  /**
+   * Sorts the sample in place and returns a view of it.
+   *
+   * The reservoir is never read again afterwards, so sorting the backing buffer
+   * directly avoids a second full-size copy — which at the default sample size
+   * is a hundred and sixty megabytes.
+   */
+  sortInPlace(): Float64Array {
+    return this.values.subarray(0, this.filled).sort();
   }
+}
+
+/**
+ * The finite span of an already-sorted sample, as a view rather than a copy.
+ *
+ * `TypedArray.prototype.sort` puts NaN last and orders ±Infinity naturally, so
+ * after sorting the layout is `[-Inf…, finite…, +Inf…, NaN…]` and the finite
+ * values can be isolated by moving in from both ends.
+ */
+function finiteSpan(sorted: Float64Array): Float64Array {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi && !Number.isFinite(sorted[lo])) {
+    lo += 1;
+  }
+  while (hi > lo && !Number.isFinite(sorted[hi - 1])) {
+    hi -= 1;
+  }
+  return sorted.subarray(lo, hi);
+}
+
+/**
+ * Median absolute deviation, computed without materialising the deviations.
+ *
+ * Because `sorted` is ordered, |x - median| falls as we approach the median and
+ * rises after it, so walking outwards from the median with two pointers visits
+ * the deviations in ascending order. Taking the middle one gives the exact MAD
+ * in O(n) time and constant space.
+ */
+function medianAbsoluteDeviation(sorted: Float64Array, median: number): number {
+  const n = sorted.length;
+  if (n === 0) {
+    return Number.NaN;
+  }
+
+  // Start the pointers either side of the median's position.
+  let left = 0;
+  let right = n - 1;
+  while (left < right) {
+    const mid = (left + right) >> 1;
+    if (sorted[mid] < median) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+  let lower = left - 1;
+  let upper = left;
+
+  // The same interpolated-order-statistic convention `quantile` uses.
+  const target = (n - 1) / 2;
+  const loRank = Math.floor(target);
+  const hiRank = Math.ceil(target);
+  let loValue = Number.NaN;
+  let hiValue = Number.NaN;
+
+  // Walking outwards, always taking whichever side is nearer the median, yields
+  // the deviations in ascending order.
+  for (let rank = 0; rank <= hiRank; rank += 1) {
+    const leftGap =
+      lower >= 0 ? median - sorted[lower] : Number.POSITIVE_INFINITY;
+    const rightGap =
+      upper < n ? sorted[upper] - median : Number.POSITIVE_INFINITY;
+
+    let deviation: number;
+    if (leftGap <= rightGap) {
+      deviation = leftGap;
+      lower -= 1;
+    } else {
+      deviation = rightGap;
+      upper += 1;
+    }
+
+    if (rank === loRank) {
+      loValue = deviation;
+    }
+    if (rank === hiRank) {
+      hiValue = deviation;
+    }
+  }
+
+  return loRank === hiRank
+    ? loValue
+    : loValue + (hiValue - loValue) * (target - loRank);
 }
 
 /** Tallies distinct values until the cardinality is clearly too high to matter. */
@@ -324,7 +415,7 @@ export async function computeStats(
     }
   }
 
-  const sorted = reservoir.toSorted();
+  const sorted = reservoir.sortInPlace();
   const approximate = reservoir.size < overall.total;
   const stats = finalise(
     overall,
@@ -389,9 +480,7 @@ function finalise(
   approximate: boolean,
   bins: number,
 ): NumericStats {
-  const finite = sorted.length
-    ? sorted.filter((v) => Number.isFinite(v))
-    : sorted;
+  const finite = finiteSpan(sorted);
   const percentileKeys = [0.1, 1, 5, 10, 25, 50, 75, 90, 95, 99, 99.9];
   const percentiles: Record<string, number> = {};
   for (const p of percentileKeys) {
@@ -413,12 +502,6 @@ function finalise(
   }
   // Scale the sampled outlier count back up to the full array.
   const scale = finite.length ? acc.n / finite.length : 1;
-
-  const deviations = new Float64Array(finite.length);
-  for (let i = 0; i < finite.length; i += 1) {
-    deviations[i] = Math.abs(finite[i] - median);
-  }
-  deviations.sort();
 
   const hasSpread =
     acc.n > 0 && Number.isFinite(acc.min) && Number.isFinite(acc.max);
@@ -456,7 +539,7 @@ function finalise(
     median,
     percentiles,
     iqr,
-    madMedian: quantile(deviations, 0.5),
+    madMedian: medianAbsoluteDeviation(finite, median),
 
     l1: acc.l1,
     l2: Math.sqrt(acc.l2sq),
@@ -510,10 +593,6 @@ function buildHistogram(
 
   let lo = acc.min;
   let hi = acc.max;
-  if (lo === hi) {
-    lo -= 0.5;
-    hi += 0.5;
-  }
 
   // Integer data with few distinct values reads far better with one bin each.
   let binCount = bins;
@@ -524,11 +603,23 @@ function buildHistogram(
     hi = acc.max + 0.5;
   }
 
+  if (!(hi > lo)) {
+    // Padding by a fixed 0.5 is a no-op once the values are large enough that
+    // half a unit falls below one ulp — at 6e23 the spacing is already 6.7e7,
+    // so `v - 0.5 === v` and the range would stay empty. Scale the padding to
+    // the magnitude so a constant array always gets a drawable range.
+    const pad = Math.max(Math.abs(lo) * 1e-9, 0.5);
+    lo -= pad;
+    hi += pad;
+  }
+
   const counts = new Array<number>(binCount).fill(0);
   const width = (hi - lo) / binCount;
   for (const v of finite) {
     let bin = Math.floor((v - lo) / width);
-    if (bin < 0) {
+    // A zero or non-finite width would otherwise yield a NaN index, which
+    // silently drops the value instead of counting it.
+    if (!Number.isFinite(bin) || bin < 0) {
       bin = 0;
     } else if (bin >= binCount) {
       bin = binCount - 1;

@@ -1,6 +1,6 @@
 import type {
-  InitPayload,
   Layout,
+  InitPayload,
   TableWindow,
   ViewerConfig,
   WebviewCommand,

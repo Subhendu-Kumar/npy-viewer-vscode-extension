@@ -1,20 +1,20 @@
 import type {
+  Layout,
   HostMessage,
   InitPayload,
-  Layout,
   TableWindow,
   ViewerConfig,
   WebviewCommand,
   WebviewMessage,
 } from "../common/types";
-import type { ViewContext } from "./context";
-import { decodeBlock, type DecodedBlock } from "./decode";
-import { button, clear, el } from "./dom";
-import { fmtBytes, fmtCount, fmtShape } from "./format";
 import { DataView } from "./views/data";
 import { MetaView } from "./views/meta";
+import { button, clear, el } from "./dom";
 import { StatsView } from "./views/stats";
 import { VisualView } from "./views/visual";
+import type { ViewContext } from "./context";
+import { fmtBytes, fmtCount, fmtShape } from "./format";
+import { decodeBlock, type DecodedBlock } from "./decode";
 
 declare function acquireVsCodeApi(): {
   postMessage(message: WebviewMessage): void;

@@ -1,9 +1,9 @@
 import type {
+  Layout,
+  ViewKind,
   ArrayMeta,
   Detection,
-  Layout,
   NumericStats,
-  ViewKind,
 } from "../common/types";
 import type { ParsedDtype } from "./dtype";
 

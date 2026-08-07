@@ -1,22 +1,23 @@
-import * as path from "node:path";
 import * as vscode from "vscode";
+import * as path from "node:path";
+
 import type {
+  Layout,
   ArrayMeta,
-  BackendInfo,
   Detection,
+  BackendInfo,
   HostMessage,
   InitPayload,
-  Layout,
   StatsBundle,
   ViewerConfig,
   WebviewMessage,
 } from "../common/types";
-import { buildInsights } from "../core/insights";
-import { detectLayout, refineDetection } from "../core/layout";
 import { NpyFile } from "../core/npyFile";
-import { computeStats } from "../core/stats";
-import type { PythonBackend } from "../python/backend";
 import { renderWebviewHtml } from "./html";
+import { computeStats } from "../core/stats";
+import { buildInsights } from "../core/insights";
+import type { PythonBackend } from "../python/backend";
+import { detectLayout, refineDetection } from "../core/layout";
 
 /** Thumbnails fetched up front for the grid view. */
 const INITIAL_THUMBNAILS = 64;

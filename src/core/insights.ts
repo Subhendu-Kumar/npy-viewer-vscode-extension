@@ -1,7 +1,7 @@
 import type {
+  Insight,
   ArrayMeta,
   Detection,
-  Insight,
   StatsBundle,
 } from "../common/types";
 import { trimNumber } from "./dtype";
