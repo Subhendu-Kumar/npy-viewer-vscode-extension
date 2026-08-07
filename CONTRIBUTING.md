@@ -184,6 +184,44 @@ The array is usually the whole story, so please include:
 A snippet of the `numpy` code that produced the file is more useful than the
 file itself, and easier to attach.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request:
+type-check, lint and the full suite on Linux and Windows, then packages the
+extension and attaches the `.vsix` to the run so a change can be installed and
+tried by hand.
+
+A second job installs NumPy and runs `.github/scripts/check_backend.py`, which
+drives the shipped `src/python/npy_load.py` as a subprocess over every sample
+array and compares its output to NumPy directly. That file is copied verbatim
+into the package, so it needs coverage of its own.
+
+## Cutting a release
+
+Releases are made by tagging. Update the changelog first — the workflow refuses
+to publish a version that has no section.
+
+```sh
+# 1. Add a "## [0.1.0] - YYYY-MM-DD" section to CHANGELOG.md and commit it.
+# 2. Bump the manifest and tag in one step.
+npm version 0.1.0 -m "Release %s"
+# 3. Push the commit and its tag.
+git push origin main --follow-tags
+```
+
+`.github/workflows/release.yml` then takes over. Before building anything it
+checks that the tag matches `package.json` and that the changelog has notes for
+it, so a mistyped tag fails in seconds rather than after a full test run. It
+then runs the same checks as CI, packages the extension, verifies that the
+bundles and the Python loader are actually inside the `.vsix` — they are copied
+by an esbuild plugin rather than bundled, so a silent copy failure would
+otherwise ship — and creates the GitHub release with the `.vsix` attached.
+
+A version containing a hyphen (`0.1.0-rc.1`) is published as a pre-release.
+
+Nothing is pushed to the VS Code Marketplace; publishing there is still a
+deliberate manual step (`npx @vscode/vsce publish`).
+
 ## Licence
 
 The project is [MIT licensed](LICENSE). By contributing you agree that your

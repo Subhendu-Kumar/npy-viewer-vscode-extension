@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Nothing here needs write access; the release workflow elevates separately.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type-check
+        run: npm run check-types
+
+      - name: Lint
+        run: npm run lint
+
+      # The suite runs inside a real VS Code instance, which needs a display.
+      - name: Test
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm test
+
+      - name: Test
+        if: runner.os != 'Linux'
+        run: npm test
+
+      - name: Package
+        run: npx @vscode/vsce package --out npy-viewer.vsix
+
+      # One artifact is enough to install and try a pull request by hand.
+      - name: Upload the extension
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: npy-viewer-vsix
+          path: npy-viewer.vsix
+          retention-days: 14
+
+  backend:
+    name: NumPy backend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install NumPy
+        run: python -m pip install --upgrade pip numpy
+
+      # npy_load.py ships verbatim, so a syntax error in it reaches users.
+      - name: Compile the loader
+        run: python -m compileall -q src/python/npy_load.py
+
+      - name: Generate the sample arrays
+        run: python sample-npy-files/generate.py
+
+      - name: Check the backend against NumPy
+        run: python .github/scripts/check_backend.py

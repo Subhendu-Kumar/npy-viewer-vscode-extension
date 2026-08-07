@@ -1,0 +1,125 @@
+name: Release
+
+# Cutting a release is tagging one:
+#
+#   npm version 0.1.0 -m "Release %s"   # updates package.json and tags
+#   git push origin main --follow-tags
+#
+# The tag must match the version in package.json and have a matching section in
+# CHANGELOG.md; both are checked before anything is built.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Package and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to create the release and upload the .vsix
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Fail before spending time on a build that could not be released.
+      - name: Resolve and verify the version
+        id: version
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          manifest="$(node -p "require('./package.json').version")"
+
+          if [ "$version" != "$manifest" ]; then
+            echo "::error::Tag $tag implies version $version, but package.json says $manifest."
+            exit 1
+          fi
+
+          {
+            echo "version=$version"
+            echo "vsix=npy-viewer-$version.vsix"
+          } >> "$GITHUB_OUTPUT"
+
+          # A hyphen marks a pre-release under semver: 1.0.0-beta.1, 1.0.0-rc.2.
+          if [[ "$version" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "Releasing $version from $tag"
+
+      - name: Extract the release notes
+        run: |
+          node .github/scripts/changelog-section.mjs \
+            "${{ steps.version.outputs.version }}" > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      - run: npm ci
+
+      - name: Type-check
+        run: npm run check-types
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: xvfb-run -a npm test
+
+      - name: Package
+        run: npx @vscode/vsce package --out "${{ steps.version.outputs.vsix }}"
+
+      # The Python loader and the stylesheet are copied by an esbuild plugin
+      # rather than bundled, so a silent copy failure would ship a broken
+      # extension that still packages cleanly. Check they are actually inside.
+      - name: Verify the package contents
+        run: |
+          set -euo pipefail
+          vsix="${{ steps.version.outputs.vsix }}"
+          unzip -l "$vsix"
+
+          for required in \
+            extension/dist/extension.js \
+            extension/dist/webview.js \
+            extension/dist/webview.css \
+            extension/dist/npy_load.py \
+            extension/package.json
+          do
+            if ! unzip -l "$vsix" | grep -qF "$required"; then
+              echo "::error::$required is missing from $vsix"
+              exit 1
+            fi
+          done
+          echo "All required files are present."
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          args=(
+            "${GITHUB_REF_NAME}"
+            "${{ steps.version.outputs.vsix }}"
+            --title "NPY Viewer ${{ steps.version.outputs.version }}"
+            --notes-file RELEASE_NOTES.md
+            --verify-tag
+          )
+          if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then
+            args+=(--prerelease)
+          fi
+          gh release create "${args[@]}"
+
+      - name: Keep a copy on the workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.version.outputs.vsix }}
+          path: ${{ steps.version.outputs.vsix }}
+          retention-days: 90
