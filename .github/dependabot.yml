@@ -1,0 +1,35 @@
+version: 2
+
+updates:
+  # Ten dev dependencies and no runtime dependencies, so the volume stays low.
+  # Grouped so a routine refresh arrives as one reviewable pull request rather
+  # than ten.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      typescript-toolchain:
+        patterns:
+          - typescript
+          - typescript-eslint
+          - eslint
+          - "@types/*"
+      build-and-test:
+        patterns:
+          - esbuild
+          - npm-run-all
+          - "@vscode/test-*"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "ci"

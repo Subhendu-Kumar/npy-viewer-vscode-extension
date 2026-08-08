@@ -10,3 +10,7 @@ sample-npy-files/*.npy
 
 # Personal working notes and plans — never committed.
 *.local.md
+
+# Unit-test bundles and coverage output
+.test-build/
+coverage/

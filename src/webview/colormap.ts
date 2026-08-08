@@ -158,7 +158,7 @@ export interface RenderOptions {
  * Log scaling compresses a wide positive dynamic range; symlog does the same
  * for signed data by working on magnitude around zero.
  */
-function normalise(
+export function normalise(
   value: number,
   min: number,
   max: number,

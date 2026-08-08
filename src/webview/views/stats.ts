@@ -300,7 +300,7 @@ export class StatsView {
  * earns its space once values genuinely repeat, which in practice means each
  * one occurring at least twice on average.
  */
-function hasMeaningfulFrequencies(s: NumericStats): boolean {
+export function hasMeaningfulFrequencies(s: NumericStats): boolean {
   const top = s.topValues?.[0];
   if (!top || s.uniqueCount === null || s.uniqueCount < 2) {
     return false;

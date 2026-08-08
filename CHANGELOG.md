@@ -4,6 +4,22 @@ All notable changes to NPY Viewer are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] — 2026-08-08
+
+Engineering health only. The extension behaves exactly as 1.0.2 did; everything
+below is test, tooling and CI work that does not ship in the package.
+
+### Added
+
+- A unit suite for the webview and for the insight rules, neither of which had
+  any coverage: 47 tests became 107. `npm run test:unit` runs everything that
+  does not need a VS Code instance in about a second, and takes a name filter.
+- Coverage reporting with `c8` (`npm run coverage`), reported in CI rather than
+  gated on a threshold.
+- A memory and time budget check for the statistics pass, run in CI. A
+  regression there leaves every number correct, so no other check would notice.
+- Dependabot for npm and GitHub Actions, grouped weekly.
+
 ## [1.0.2] — 2026-08-08
 
 ### Added

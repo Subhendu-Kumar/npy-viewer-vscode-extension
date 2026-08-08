@@ -75,18 +75,45 @@ npm run lint           # eslint
 npm test               # the suite, in a real extension host
 ```
 
-`npm test` downloads VS Code the first time. If that is slow or blocked, the
-core suite has no `vscode` dependency and runs directly:
+There are two suites, split by what they need:
 
 ```sh
-npx esbuild src/test/core.test.ts --bundle --platform=node --format=cjs \
-  --outfile=/tmp/core-tests.js
-node -e "
-const cases=[];globalThis.suite=(n,f)=>f();globalThis.test=(n,f)=>cases.push([n,f]);
-require('/tmp/core-tests.js');
-(async()=>{let bad=0;for(const [n,f] of cases){try{await f()}catch(e){bad++;console.log('FAIL',n,e.message)}}
-console.log(cases.length-bad+' passing, '+bad+' failing')})()"
+npm run test:unit      # core + webview logic, no VS Code, ~1 second
+npm test               # the above plus manifest and activation checks in a real host
+npm run coverage       # test:unit with a c8 report in coverage/
 ```
+
+Reach for `npm run test:unit` while working — everything under `src/core/` and
+`src/webview/` is pure, so it needs neither `vscode` nor a DOM. It also takes a
+filter:
+
+```sh
+npm run test:unit -- colormap
+```
+
+`npm test` additionally downloads VS Code the first time, which is slow and
+occasionally blocked on restricted networks. Only `extension.test.ts` needs it.
+
+### Coverage
+
+Around 89% of shipped source, and the per-file table is more useful than the
+headline. Note the mechanics if you touch `.c8rc.json`: the suites are bundled
+before running, so coverage is collected against the bundle and mapped back
+through its sourcemap. `include` therefore has to admit the bundle — a pattern
+like `src/**` matches nothing, because filtering happens before the remap. Test
+files are dropped afterwards via `excludeAfterRemap`.
+
+### Performance budget
+
+```sh
+node scripts/check-performance.mjs
+```
+
+Generates a 25-million-element array — deliberately larger than the default
+exact-quantile limit, so the sampling path is the one measured — and fails if
+the statistics pass exceeds 600 MB peak or 120 seconds. A small array would
+prove nothing here, because below that limit the retained sample is the whole
+array and stays small however the code is written.
 
 ## Verifying against NumPy
 
@@ -191,10 +218,20 @@ type-check, lint and the full suite on Linux and Windows, then packages the
 extension and attaches the `.vsix` to the run so a change can be installed and
 tried by hand.
 
-A second job installs NumPy and runs `.github/scripts/check_backend.py`, which
-drives the shipped `src/python/npy_load.py` as a subprocess over every sample
-array and compares its output to NumPy directly. That file is copied verbatim
-into the package, so it needs coverage of its own.
+Three further jobs run alongside it:
+
+- **NumPy backend** — installs NumPy and runs `.github/scripts/check_backend.py`,
+  which drives the shipped `src/python/npy_load.py` as a subprocess over every
+  sample array and compares its output to NumPy directly. That file is copied
+  verbatim into the package, so it needs coverage of its own.
+- **Coverage** — reports the number and uploads `lcov.info`. Deliberately not
+  gated on a threshold; a threshold invites gaming, whereas the number being
+  visible on every run is what keeps it honest.
+- **Memory and time budget** — the check described above. A regression here
+  leaves every number correct, so nothing else would go red.
+
+Dependabot proposes weekly updates for npm and the actions themselves, grouped
+so a routine refresh arrives as one reviewable pull request.
 
 ## Cutting a release
 

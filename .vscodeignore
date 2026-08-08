@@ -2,6 +2,9 @@
 .vscode-test/**
 .github/**
 out/**
+coverage/**
+.test-build/**
+scripts/**
 node_modules/**
 src/**
 sample-npy-files/**
@@ -11,6 +14,7 @@ images/screenshots/**
 .gitignore
 .gitattributes
 .yarnrc
+.c8rc.json
 esbuild.js
 CONTRIBUTING.md
 **/*.local.md

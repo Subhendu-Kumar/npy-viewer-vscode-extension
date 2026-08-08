@@ -39,12 +39,18 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      # The suite runs inside a real VS Code instance, which needs a display.
-      - name: Test
+      # Core and webview logic is pure, so it runs in about a second without
+      # downloading VS Code. Running it first means a logic error fails fast.
+      - name: Unit tests
+        run: npm run test:unit
+
+      # The remaining suite checks the manifest and activation inside a real VS
+      # Code instance, which needs a display on Linux.
+      - name: Extension host tests
         if: runner.os == 'Linux'
         run: xvfb-run -a npm test
 
-      - name: Test
+      - name: Extension host tests
         if: runner.os != 'Linux'
         run: npm test
 
@@ -59,6 +65,52 @@ jobs:
           name: npy-viewer-vsix
           path: npy-viewer.vsix
           retention-days: 14
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Reported, not gated. A threshold invites gaming; the number being
+      # visible on every run is what actually keeps it honest.
+      - name: Measure coverage
+        run: npm run coverage
+
+      - name: Upload the lcov report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          retention-days: 14
+
+  performance:
+    name: Memory and time budget
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # A regression here keeps every number correct, so no test goes red — one
+      # shipped release peaked at 1.9 GB in the shared extension host before
+      # this check existed.
+      - name: Check the statistics budget
+        run: node scripts/check-performance.mjs
 
   backend:
     name: NumPy backend

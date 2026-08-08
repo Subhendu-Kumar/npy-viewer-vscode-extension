@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/c8rc.json",
+  "all": false,
+  "//": "The suites are bundled before running, so coverage is collected against the bundle and remapped to TypeScript through its sourcemap. Include has to admit the bundle — filtering on src/** here would match nothing, because the filter is applied before the remap. Exclusions below are applied after it.",
+  "include": ["**"],
+  "//exclude": "excludeAfterRemap is essential: include has to admit the bundle (pre-remap) or nothing is collected at all, so the suites can only be filtered out once coverage has been mapped back to TypeScript.",
+  "excludeAfterRemap": true,
+  "exclude": [
+    "**/*.test.ts",
+    "**/test/**",
+    "scripts/**",
+    "esbuild.js",
+    "**/*.d.ts"
+  ],
+  "excludeNodeModules": true,
+  "reporter": ["text", "text-summary", "lcov"],
+  "reportsDirectory": "coverage",
+  "clean": true
+}
