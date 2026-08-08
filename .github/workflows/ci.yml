@@ -60,7 +60,7 @@ jobs:
       # One artifact is enough to install and try a pull request by hand.
       - name: Upload the extension
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: npy-viewer-vsix
           path: npy-viewer.vsix
@@ -86,7 +86,7 @@ jobs:
         run: npm run coverage
 
       - name: Upload the lcov report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-lcov
           path: coverage/lcov.info
